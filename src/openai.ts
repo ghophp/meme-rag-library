@@ -31,52 +31,42 @@ export async function describeImage(imageBuffer: Buffer, mimeType: string): Prom
   const frames = isGif ? await extractGifFrames(imageBuffer) : [];
   const isAnimated = frames.length > 1;
 
-  const imageContent: OpenAI.ChatCompletionContentPart[] = [];
+  const prompt = `You are a meme encyclopedia with deep knowledge of internet culture. Your job is to identify this meme and produce search terms that will help people find it.
+
+Output ONLY a comma-separated list of 10-15 search terms/phrases. Include:
+- The meme's well-known name (e.g. "Confused Travolta", "Roll Safe Think About It")
+- The person's real name and character name if applicable
+- Associated catchphrases or caption templates
+- The emotion/reaction it expresses
+- The physical gesture or action shown
+- Common situations people use it for
+
+Be confident — you know these memes. Output nothing except the comma-separated terms.${isAnimated ? `\n\nThis is an animated GIF. I'm showing you ${frames.length} frames in sequence — pay attention to the motion.` : ""}`;
+
+  const imageContent: OpenAI.ChatCompletionContentPart[] = [
+    { type: "text", text: prompt },
+  ];
 
   if (isAnimated) {
-    imageContent.push({
-      type: "text",
-      text: `Analyze this animated meme GIF. I'm showing you ${frames.length} frames in sequence from the animation. Pay close attention to how the person's hands, body, and expression CHANGE across the frames — the motion tells the story.
-
-Answer these questions in a single paragraph:
-- What GESTURE or ACTION is being performed across the frames? Describe the full motion arc precisely — where do the hands start, where do they end, what does the face do?
-- What reaction, emotion, or situation does this gesture express?
-- If someone wanted to find this meme, what would they search for? Only suggest search terms that PRECISELY match the gesture and emotion shown — do not add tangentially related terms.
-- When and why would someone send this meme?
-
-Write a single natural paragraph. Do NOT use bullet points, headers, or numbered lists. Do NOT guess a meme name if you are not confident — just describe its intent.`,
-    });
-    for (let i = 0; i < frames.length; i++) {
-      const base64 = frames[i].toString("base64");
+    for (const frame of frames) {
+      const base64 = frame.toString("base64");
       imageContent.push({
         type: "image_url",
-        image_url: { url: `data:image/png;base64,${base64}`, detail: "low" },
+        image_url: { url: `data:image/png;base64,${base64}`, detail: "auto" },
       });
     }
   } else {
-    imageContent.push({
-      type: "text",
-      text: `Analyze this meme image. Your description must focus on the meme's PURPOSE and MEANING, not just what you see visually.
-
-Answer these questions in a single paragraph:
-- If someone wanted to find this meme, what would they search for?
-- What reaction, emotion, or situation does this meme express?
-- When and why would someone send this meme?
-- What are the key visual elements?
-
-Write a single natural paragraph. Do NOT use bullet points, headers, or numbered lists. Do NOT guess a meme name if you are not confident — just describe its intent.`,
-    });
     const base64 = imageBuffer.toString("base64");
     imageContent.push({
       type: "image_url",
-      image_url: { url: `data:${mimeType};base64,${base64}`, detail: "low" },
+      image_url: { url: `data:${mimeType};base64,${base64}`, detail: "auto" },
     });
   }
 
   const response = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
+    model: "gpt-4o",
     messages: [{ role: "user", content: imageContent }],
-    max_tokens: 500,
+    max_tokens: 200,
   });
 
   return response.choices[0].message.content!;
@@ -89,14 +79,14 @@ export async function expandQuery(query: string): Promise<string> {
       {
         role: "system",
         content:
-          `You are a meme expert. Given a short search query, describe the GENERAL concept, emotion, and reaction that memes matching this query express. Do NOT describe one specific meme — instead describe what ALL memes of this type have in common: the feeling they convey, the situations they're used in, the types of visual elements they share (expressions, gestures, effects), and the internet culture context. Write a single concise paragraph.`,
+          `Given a meme search query, output 8-10 comma-separated synonyms, related emotions, gestures, and situations. Do NOT include specific meme names, character names, or actor names — only generic descriptive terms. Output ONLY the comma-separated terms, nothing else.`,
       },
       {
         role: "user",
         content: query,
       },
     ],
-    max_tokens: 500,
+    max_tokens: 200,
   });
 
   return response.choices[0].message.content!;

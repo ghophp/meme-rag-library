@@ -53,6 +53,18 @@ export async function searchMemes(embedding: number[], limit: number = 20): Prom
   return rows as unknown as Meme[];
 }
 
+export async function keywordSearchMemes(query: string, limit: number = 20): Promise<Meme[]> {
+  const pattern = `%${query}%`;
+  const rows = await sql`
+    SELECT id, filename, original_name, description, created_at,
+           1.0 AS similarity
+    FROM memes
+    WHERE description ILIKE ${pattern} OR original_name ILIKE ${pattern}
+    LIMIT ${limit}
+  `;
+  return rows as unknown as Meme[];
+}
+
 export async function deleteMeme(id: number): Promise<void> {
   await sql`DELETE FROM memes WHERE id = ${id}`;
 }

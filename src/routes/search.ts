@@ -1,13 +1,8 @@
 import { Hono } from "hono";
-import { searchMemes, SIMILARITY_THRESHOLD } from "../db";
+import { searchMemes, keywordSearchMemes, SIMILARITY_THRESHOLD, type Meme } from "../db";
 import { getEmbedding, expandQuery } from "../openai";
 
 const search = new Hono();
-
-function formatVector(v: number[]): string {
-  const preview = v.slice(0, 5).map((n) => n.toFixed(6)).join(", ");
-  return `[${preview}, ...] (${v.length} dimensions)`;
-}
 
 search.get("/search", async (c) => {
   const query = c.req.query("q");
@@ -18,23 +13,41 @@ search.get("/search", async (c) => {
   console.log("\n========== SEARCH ==========");
   console.log(`Original query: "${query}"`);
 
-  // Step 1: Expand the query into a meme-like description (HyDE)
-  const expandedQuery = await expandQuery(query);
+  // Run all searches in parallel: raw vector, expanded vector, keyword
+  const [rawEmbedding, expandedQuery, keywordResults] = await Promise.all([
+    getEmbedding(query),
+    expandQuery(query),
+    keywordSearchMemes(query),
+  ]);
   console.log(`Expanded query: "${expandedQuery}"`);
+  console.log(`Keyword matches: ${keywordResults.length}`);
 
-  // Step 2: Embed original query + expanded description together
-  const combinedQuery = `${query}\n\n${expandedQuery}`;
-  console.log(`Combined query: "${combinedQuery}"`);
-  const queryEmbedding = await getEmbedding(combinedQuery);
-  console.log(`Query embedding: ${formatVector(queryEmbedding)}`);
-  console.log(`Similarity threshold: ${SIMILARITY_THRESHOLD}`);
+  const expandedEmbedding = await getEmbedding(expandedQuery);
 
-  // Step 3: Search with threshold
-  const results = await searchMemes(queryEmbedding);
+  const [rawResults, expandedResults] = await Promise.all([
+    searchMemes(rawEmbedding),
+    searchMemes(expandedEmbedding),
+  ]);
 
-  console.log(`Results found: ${results.length}`);
+  // Merge: keep best similarity per meme, keyword matches get boosted
+  const bestById = new Map<number, Meme>();
+  const keywordIds = new Set(keywordResults.map((r) => r.id));
+
+  for (const r of [...rawResults, ...expandedResults, ...keywordResults]) {
+    const existing = bestById.get(r.id);
+    if (!existing || Number(r.similarity) > Number(existing.similarity)) {
+      bestById.set(r.id, r);
+    }
+  }
+
+  const results = [...bestById.values()].sort(
+    (a, b) => Number(b.similarity) - Number(a.similarity)
+  );
+
+  console.log(`Results found: ${results.length} (raw: ${rawResults.length}, expanded: ${expandedResults.length}, keyword: ${keywordResults.length})`);
   for (const r of results) {
-    console.log(`  - [${(Number(r.similarity) * 100).toFixed(1)}% match] ${r.original_name}`);
+    const kw = keywordIds.has(r.id) ? " [KW]" : "";
+    console.log(`  - [${(Number(r.similarity) * 100).toFixed(1)}% match]${kw} ${r.original_name}`);
   }
   console.log("============================\n");
 
