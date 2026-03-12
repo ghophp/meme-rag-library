@@ -1,0 +1,38 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: memerag
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/memerag
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      PORT: "3000"
+    volumes:
+      - ./src:/app/src
+      - ./public:/app/public
+      - uploads:/app/uploads
+    command: ["bun", "--watch", "src/index.ts"]
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  uploads:
