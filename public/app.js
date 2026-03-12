@@ -105,43 +105,50 @@ uploadArea.addEventListener("dragleave", () => {
 uploadArea.addEventListener("drop", (e) => {
   e.preventDefault();
   uploadArea.classList.remove("dragover");
-  const file = e.dataTransfer.files[0];
-  if (file && file.type.startsWith("image/")) {
-    uploadFile(file);
+  const files = [...e.dataTransfer.files].filter((f) => f.type.startsWith("image/"));
+  if (files.length > 0) {
+    uploadFiles(files);
   }
 });
 
 fileInput.addEventListener("change", () => {
-  if (fileInput.files[0]) {
-    uploadFile(fileInput.files[0]);
+  const files = [...fileInput.files].filter((f) => f.type.startsWith("image/"));
+  if (files.length > 0) {
+    uploadFiles(files);
   }
 });
 
-async function uploadFile(file) {
+async function uploadFiles(files) {
   uploadStatus.style.display = "flex";
   uploadArea.style.display = "none";
 
-  const formData = new FormData();
-  formData.append("image", file);
+  const statusText = uploadStatus.querySelector("span") || uploadStatus;
 
-  try {
-    const res = await fetch("/api/upload", { method: "POST", body: formData });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || "Upload failed");
+  for (let i = 0; i < files.length; i++) {
+    statusText.textContent = `Uploading ${i + 1} of ${files.length}: ${files[i].name}`;
+
+    const formData = new FormData();
+    formData.append("image", files[i]);
+
+    try {
+      const res = await fetch("/api/upload", { method: "POST", body: formData });
+      if (!res.ok) {
+        const err = await res.json();
+        console.error(`Failed to upload ${files[i].name}: ${err.error}`);
+      }
+    } catch (err) {
+      console.error(`Failed to upload ${files[i].name}: ${err.message}`);
     }
 
-    // Refresh gallery
+    // Refresh gallery after each upload
     if (!isSearchMode) {
       await loadMemes();
     }
-  } catch (err) {
-    alert("Upload failed: " + err.message);
-  } finally {
-    uploadStatus.style.display = "none";
-    uploadArea.style.display = "block";
-    fileInput.value = "";
   }
+
+  uploadStatus.style.display = "none";
+  uploadArea.style.display = "block";
+  fileInput.value = "";
 }
 
 async function deleteMeme(id) {
