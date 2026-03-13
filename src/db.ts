@@ -59,7 +59,19 @@ export async function keywordSearchMemes(query: string, limit: number = 20): Pro
     SELECT id, filename, original_name, description, created_at,
            1.0 AS similarity
     FROM memes
-    WHERE description ILIKE ${pattern} OR original_name ILIKE ${pattern}
+    WHERE description ILIKE ${pattern}
+    LIMIT ${limit}
+  `;
+  return rows as unknown as Meme[];
+}
+
+export async function debugTopMemes(embedding: number[], limit: number = 5): Promise<Meme[]> {
+  const vectorStr = toSql(embedding);
+  const rows = await sql`
+    SELECT id, filename, original_name, description, created_at,
+           1 - (embedding <=> ${vectorStr}::vector) AS similarity
+    FROM memes
+    ORDER BY embedding <=> ${vectorStr}::vector
     LIMIT ${limit}
   `;
   return rows as unknown as Meme[];

@@ -33,8 +33,12 @@ async function doSearch() {
   clearBtn.style.display = "block";
   isSearchMode = true;
 
+  const params = new URLSearchParams({ q: query });
+  if (document.getElementById("useHyde").checked) params.set("hyde", "1");
+  if (document.getElementById("useKeyword").checked) params.set("keyword", "1");
+
   try {
-    const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+    const res = await fetch(`/api/search?${params}`);
     const results = await res.json();
     renderMemes(results, true);
   } catch (err) {

@@ -64,7 +64,7 @@ Be confident — you know these memes. Output nothing except the comma-separated
   }
 
   const response = await openai.chat.completions.create({
-    model: "gpt-4o",
+    model: "gpt-5-mini",
     messages: [{ role: "user", content: imageContent }],
     max_tokens: 200,
   });
@@ -74,7 +74,7 @@ Be confident — you know these memes. Output nothing except the comma-separated
 
 export async function expandQuery(query: string): Promise<string> {
   const response = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
+    model: "gpt-5-mini",
     messages: [
       {
         role: "system",

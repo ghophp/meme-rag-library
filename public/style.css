@@ -85,6 +85,26 @@ main {
   background: #444;
 }
 
+.search-options {
+  display: flex;
+  gap: 1.5rem;
+  justify-content: center;
+  margin-top: 0.75rem;
+}
+
+.search-options label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #888;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.search-options input[type="checkbox"] {
+  accent-color: #646cff;
+}
+
 /* Upload */
 .upload-section {
   margin-bottom: 2rem;
