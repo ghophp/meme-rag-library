@@ -64,17 +64,22 @@ Be confident — you know these memes. Output nothing except the comma-separated
   }
 
   const response = await openai.chat.completions.create({
-    model: "gpt-5-mini",
+    model: "gpt-4o",
     messages: [{ role: "user", content: imageContent }],
     max_tokens: 200,
   });
 
-  return response.choices[0].message.content!;
+  const msg = response.choices[0].message;
+  if (!msg.content) {
+    console.error("Vision response empty:", JSON.stringify({ refusal: msg.refusal, finish_reason: response.choices[0].finish_reason }));
+    throw new Error(msg.refusal || "Vision model returned no description");
+  }
+  return msg.content;
 }
 
 export async function expandQuery(query: string): Promise<string> {
   const response = await openai.chat.completions.create({
-    model: "gpt-5-mini",
+    model: "gpt-4o",
     messages: [
       {
         role: "system",
